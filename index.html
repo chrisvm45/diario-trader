@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#0f1117"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>Diário do Trader</title>
+<link rel="manifest" href="manifest.json"/>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #181c26;
+    --bg3: #1e2330;
+    --border: #2a2f3e;
+    --text: #e8eaf0;
+    --muted: #6b7280;
+    --accent: #3b82f6;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --purple: #a855f7;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; overscroll-behavior: none; }
+
+  /* LAYOUT */
+  #app { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; }
+  .screen { display: none; flex: 1; overflow-y: auto; padding: 0 0 80px; }
+  .screen.active { display: block; }
+
+  /* HEADER */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+  .topbar-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  .topbar-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .topbar-btn { background: var(--bg3); border: none; color: var(--text); font-size: 13px; padding: 7px 14px; border-radius: 20px; cursor: pointer; font-weight: 500; }
+
+  /* BOTTOM NAV */
+  .bottom-nav { display: flex; background: var(--bg2); border-top: 1px solid var(--border); padding: 6px 0 env(safe-area-inset-bottom); position: sticky; bottom: 0; z-index: 10; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; cursor: pointer; color: var(--muted); font-size: 10px; border: none; background: none; }
+  .nav-item.active { color: var(--accent); }
+  .nav-icon { font-size: 22px; line-height: 1; }
+
+  /* SECTIONS */
+  .section-pad { padding: 16px; }
+  h2.section-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+
+  /* STAT CARDS */
+  .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .stat-val { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .c-green { color: var(--green); }
+  .c-red { color: var(--red); }
+  .c-yellow { color: var(--yellow); }
+  .c-accent { color: var(--accent); }
+  .c-purple { color: var(--purple); }
+
+  /* CHART BAR */
+  .chart-section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .chart-title { font-size: 12px; color: var(--muted); margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .bar-label { font-size: 12px; color: var(--muted); min-width: 70px; text-align: right; }
+  .bar-track { flex: 1; height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .bar-val { font-size: 12px; font-weight: 600; min-width: 36px; font-variant-numeric: tabular-nums; }
+
+  /* TRADE LIST */
+  .trade-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; cursor: pointer; active: opacity 0.8; }
+  .trade-card:active { opacity: 0.75; }
+  .trade-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .trade-ativo { font-size: 16px; font-weight: 700; }
+  .trade-date { font-size: 12px; color: var(--muted); }
+  .trade-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tag { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
+  .tag-compra { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .tag-venda { background: rgba(168,85,247,0.15); color: var(--purple); }
+  .tag-setup { background: var(--bg3); color: var(--muted); }
+  .trade-result { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .trade-bottom { display: flex; justify-content: space-between; align-items: center; }
+  .conv-dots { display: flex; gap: 3px; }
+  .conv-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+  .conv-dot.filled { background: var(--yellow); }
+
+  /* FORM */
+  .form-block { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .form-block-title { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  input[type=text], input[type=number], input[type=date], select, textarea {
+    width: 100%; padding: 11px 13px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text); font-size: 15px; font-family: inherit;
+    -webkit-appearance: none; appearance: none;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: none; min-height: 72px; line-height: 1.5; }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+
+  /* TOGGLE PILLS */
+  .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { padding: 7px 14px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .pill.active { border-color: var(--accent); background: rgba(59,130,246,0.15); color: var(--accent); }
+  .pill.active.red { border-color: var(--red); background: rgba(239,68,68,0.15); color: var(--red); }
+  .pill.active.green { border-color: var(--green); background: rgba(34,197,94,0.15); color: var(--green); }
+  .pill.active.yellow { border-color: var(--yellow); background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .pill.active.purple { border-color: var(--purple); background: rgba(168,85,247,0.15); color: var(--purple); }
+
+  /* CONVICTION SLIDER */
+  .slider-wrap { padding: 4px 0; }
+  .slider-row { display: flex; align-items: center; gap: 12px; }
+  input[type=range] { flex: 1; -webkit-appearance: none; appearance: none; height: 4px; background: var(--bg3); border-radius: 2px; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--accent); }
+  .slider-val { font-size: 22px; font-weight: 700; min-width: 32px; text-align: center; color: var(--yellow); font-variant-numeric: tabular-nums; }
+  .slider-desc { font-size: 12px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+  /* SENTIMENTO ICONS */
+  .sentiment-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sent-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 6px; text-align: center; cursor: pointer; font-family: inherit; color: var(--text); }
+  .sent-btn.active { border-color: var(--accent); background: rgba(59,130,246,0.1); }
+  .sent-icon { font-size: 20px; display: block; margin-bottom: 3px; }
+  .sent-label { font-size: 11px; color: var(--muted); }
+
+  /* ERROS */
+  .erro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .erro-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 10px; text-align: left; cursor: pointer; font-family: inherit; font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .erro-btn.active { border-color: var(--red); background: rgba(239,68,68,0.1); color: var(--red); }
+  .erro-icon { font-size: 15px; }
+
+  /* BTN SALVAR */
+  .btn-salvar { width: 100%; padding: 16px; background: var(--accent); border: none; color: white; font-size: 16px; font-weight: 700; border-radius: var(--radius); cursor: pointer; font-family: inherit; margin-top: 4px; letter-spacing: 0.02em; }
+  .btn-salvar:active { opacity: 0.85; transform: scale(0.99); }
+
+  /* MODAL DETALHE */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: flex-end; }
+  .modal-backdrop.open { display: flex; }
+  .modal-sheet { background: var(--bg2); border-radius: 20px 20px 0 0; padding: 20px 16px env(safe-area-inset-bottom); width: 100%; max-height: 90dvh; overflow-y: auto; }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .modal-date { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .modal-result { font-size: 32px; font-weight: 800; margin-bottom: 16px; font-variant-numeric: tabular-nums; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .detail-item { background: var(--bg3); border-radius: var(--radius-sm); padding: 10px; }
+  .detail-item-label { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .detail-item-val { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .obs-block { background: var(--bg3); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 10px; }
+  .obs-block-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  .obs-block-val { font-size: 13px; color: var(--text); line-height: 1.5; }
+  .btn-del { width: 100%; padding: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--red); font-size: 15px; font-weight: 600; border-radius: var(--radius); cursor: pointer; font-family: inherit; margin-top: 12px; }
+
+  /* DARF */
+  .darf-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .darf-mes { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+  .darf-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .darf-row:last-child { border: none; }
+  .darf-row .dl { color: var(--muted); }
+  .darf-row .dv { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .darf-imposto { font-size: 20px; font-weight: 800; color: var(--red); margin: 10px 0 4px; font-variant-numeric: tabular-nums; }
+  .darf-zero { font-size: 14px; color: var(--green); font-weight: 600; margin: 10px 0 4px; }
+  .info-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: var(--radius-sm); padding: 12px; font-size: 12px; color: var(--yellow); line-height: 1.5; margin-bottom: 14px; }
+
+  /* EMPTY */
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty p { font-size: 14px; line-height: 1.6; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--green); color: #000; font-weight: 700; font-size: 14px; padding: 10px 20px; border-radius: 20px; opacity: 0; transition: all 0.3s; z-index: 200; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* SCROLL */
+  ::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== DASHBOARD ===== -->
+  <div id="screen-dash" class="screen active">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">📊 TraderLog</div>
+        <div class="topbar-sub" id="dash-date"></div>
+      </div>
+      <button class="topbar-btn" onclick="navTo('registrar')">+ Trade</button>
+    </div>
+    <div class="section-pad">
+      <div class="stats-row" id="stats-top"></div>
+      <div id="dash-charts"></div>
+    </div>
+  </div>
+
+  <!-- ===== REGISTRAR ===== -->
+  <div id="screen-registrar" class="screen">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Registrar trade</div>
+        <div class="topbar-sub">Preencha os campos abaixo</div>
+      </div>
+    </div>
+    <div class="section-pad">
+
+      <!-- BLOCO 1: IDENTIFICAÇÃO -->
+      <div class="form-block">
+        <div class="form-block-title">📌 Identificação</div>
+        <div class="field">
+          <label>Data</label>
+          <input type="date" id="f-data"/>
+        </div>
+        <div class="field">
+          <label>Ativo</label>
+          <input type="text" id="f-ativo" placeholder="ex: WINQ26, PRIO3, PETR4"/>
+        </div>
+        <div class="field">
+          <label>Direção</label>
+          <div class="pill-group">
+            <button class="pill active green" data-group="dir" data-val="Compra" onclick="selectPill(this,'dir')">▲ Compra</button>
+            <button class="pill red" data-group="dir" data-val="Venda" onclick="selectPill(this,'dir')">▼ Venda</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCO 2: LEITURA TÉCNICA -->
+      <div class="form-block">
+        <div class="form-block-title">📈 Leitura técnica</div>
+        <div class="field">
+          <label>Setup (Al Brooks)</label>
+          <select id="f-setup">
+            <option value="H2">H2 — segundo sinal de compra</option>
+            <option value="H1">H1 — primeiro sinal de compra</option>
+            <option value="L2">L2 — segundo sinal de venda</option>
+            <option value="L1">L1 — primeiro sinal de venda</option>
+            <option value="Topo Duplo">Topo Duplo</option>
+            <option value="Fundo Duplo">Fundo Duplo</option>
+            <option value="Reversão MM20">Reversão MM20</option>
+            <option value="Bandeira">Bandeira / Flag</option>
+            <option value="Cunha">Cunha</option>
+            <option value="Candle Climático">Saída Candle Climático</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Qualidade da barra de sinal</label>
+          <div class="pill-group">
+            <button class="pill active" data-group="barra" data-val="Forte" onclick="selectPill(this,'barra')">Forte</button>
+            <button class="pill" data-group="barra" data-val="Moderada" onclick="selectPill(this,'barra')">Moderada</button>
+            <button class="pill" data-group="barra" data-val="Fraca" onclick="selectPill(this,'barra')">Fraca</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Contexto de mercado</label>
+          <div class="pill-group">
+            <button class="pill active" data-group="ctx" data-val="Tendência Alta" onclick="selectPill(this,'ctx')">↗ Tend. alta</button>
+            <button class="pill" data-group="ctx" data-val="Tendência Baixa" onclick="selectPill(this,'ctx')">↘ Tend. baixa</button>
+            <button class="pill" data-group="ctx" data-val="Lateral" onclick="selectPill(this,'ctx')">↔ Lateral</button>
+            <button class="pill" data-group="ctx" data-val="Reversão" onclick="selectPill(this,'ctx')">⟲ Reversão</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>MM20</label>
+          <div class="pill-group">
+            <button class="pill active" data-group="mm" data-val="Acima" onclick="selectPill(this,'mm')">Acima</button>
+            <button class="pill" data-group="mm" data-val="Abaixo" onclick="selectPill(this,'mm')">Abaixo</button>
+            <button class="pill" data-group="mm" data-val="Na média" onclick="selectPill(this,'mm')">Na média</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Observação técnica</label>
+          <textarea id="f-obs-tecnica" placeholder="Descreva o contexto: estrutura do gráfico, suporte/resistência, padrão..."></textarea>
+        </div>
+      </div>
+
+      <!-- BLOCO 3: GESTÃO -->
+      <div class="form-block">
+        <div class="form-block-title">🎯 Gestão do trade</div>
+        <div class="field">
+          <label>Preço de entrada</label>
+          <input type="number" id="f-entrada" placeholder="0.00" step="0.01" inputmode="decimal"/>
+        </div>
+        <div class="field">
+          <label>Stop</label>
+          <input type="number" id="f-stop" placeholder="0.00" step="0.01" inputmode="decimal"/>
+        </div>
+        <div class="field">
+          <label>Alvo</label>
+          <input type="number" id="f-alvo" placeholder="0.00" step="0.01" inputmode="decimal"/>
+        </div>
+        <div class="field">
+          <label>Resultado (R$)</label>
+          <input type="number" id="f-resultado" placeholder="ex: 129 ou -34" step="0.01" inputmode="decimal"/>
+        </div>
+        <div class="field">
+          <label>Saída foi...</label>
+          <div class="pill-group">
+            <button class="pill active" data-group="saida" data-val="Stop atingido" onclick="selectPill(this,'saida')">Stop</button>
+            <button class="pill" data-group="saida" data-val="Alvo atingido" onclick="selectPill(this,'saida')">Alvo</button>
+            <button class="pill" data-group="saida" data-val="Manual - gain" onclick="selectPill(this,'saida')">Manual +</button>
+            <button class="pill" data-group="saida" data-val="Manual - loss" onclick="selectPill(this,'saida')">Manual −</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCO 4: CONVICÇÃO -->
+      <div class="form-block">
+        <div class="form-block-title">💡 Nível de convicção</div>
+        <div class="slider-wrap">
+          <div class="slider-row">
+            <span style="font-size:12px;color:var(--muted)">1</span>
+            <input type="range" min="1" max="10" value="5" step="1" id="f-conv" oninput="updateConv(this.value)"/>
+            <span style="font-size:12px;color:var(--muted)">10</span>
+            <span class="slider-val" id="conv-val">5</span>
+          </div>
+          <div class="slider-desc" id="conv-desc">Convicção moderada</div>
+        </div>
+      </div>
+
+      <!-- BLOCO 5: SENTIMENTO -->
+      <div class="form-block">
+        <div class="form-block-title">🧠 Sentimento emocional</div>
+        <div class="field">
+          <label>Estado emocional na entrada</label>
+          <div class="sentiment-grid">
+            <button class="sent-btn active" data-group="sent" data-val="Calmo" onclick="selectSent(this)"><span class="sent-icon">😌</span><span class="sent-label">Calmo</span></button>
+            <button class="sent-btn" data-group="sent" data-val="Confiante" onclick="selectSent(this)"><span class="sent-icon">💪</span><span class="sent-label">Confiante</span></button>
+            <button class="sent-btn" data-group="sent" data-val="Ansioso" onclick="selectSent(this)"><span class="sent-icon">😰</span><span class="sent-label">Ansioso</span></button>
+            <button class="sent-btn" data-group="sent" data-val="FOMO" onclick="selectSent(this)"><span class="sent-icon">😤</span><span class="sent-label">FOMO</span></button>
+            <button class="sent-btn" data-group="sent" data-val="Com medo" onclick="selectSent(this)"><span class="sent-icon">😨</span><span class="sent-label">Com medo</span></button>
+            <button class="sent-btn" data-group="sent" data-val="Revenge" onclick="selectSent(this)"><span class="sent-icon">🤬</span><span class="sent-label">Revenge</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCO 6: ERROS -->
+      <div class="form-block">
+        <div class="form-block-title">⚠️ Erros identificados</div>
+        <div class="field">
+          <label>Marque todos que se aplicam</label>
+          <div class="erro-grid" id="erro-grid">
+            <button class="erro-btn" data-erro="FOMO" onclick="toggleErro(this)"><span class="erro-icon">😤</span> FOMO</button>
+            <button class="erro-btn" data-erro="Entrou tarde" onclick="toggleErro(this)"><span class="erro-icon">⏰</span> Entrou tarde</button>
+            <button class="erro-btn" data-erro="Stop largo" onclick="toggleErro(this)"><span class="erro-icon">📏</span> Stop largo</button>
+            <button class="erro-btn" data-erro="Stop curto" onclick="toggleErro(this)"><span class="erro-icon">✂️</span> Stop curto</button>
+            <button class="erro-btn" data-erro="Saiu cedo" onclick="toggleErro(this)"><span class="erro-icon">🚪</span> Saiu cedo</button>
+            <button class="erro-btn" data-erro="Não gerenciou" onclick="toggleErro(this)"><span class="erro-icon">👁️</span> Não gerenciou</button>
+            <button class="erro-btn" data-erro="Sinal fraco" onclick="toggleErro(this)"><span class="erro-icon">📉</span> Sinal fraco</button>
+            <button class="erro-btn" data-erro="Contra tendência" onclick="toggleErro(this)"><span class="erro-icon">↩️</span> Contra tend.</button>
+            <button class="erro-btn" data-erro="Revenge trade" onclick="toggleErro(this)"><span class="erro-icon">🤬</span> Revenge</button>
+            <button class="erro-btn" data-erro="Overtrading" onclick="toggleErro(this)"><span class="erro-icon">🔄</span> Overtrading</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>O que melhorar</label>
+          <textarea id="f-melhorar" placeholder="Reflexão pós-operação: o que faria diferente?"></textarea>
+        </div>
+      </div>
+
+      <button class="btn-salvar" onclick="salvarTrade()">Salvar trade</button>
+    </div>
+  </div>
+
+  <!-- ===== HISTÓRICO ===== -->
+  <div id="screen-historico" class="screen">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Histórico</div>
+        <div class="topbar-sub" id="hist-count"></div>
+      </div>
+      <select id="hist-filter" onchange="renderHistorico()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:20px;font-size:13px;max-width:120px">
+        <option value="all">Todos</option>
+        <option value="win">Gains</option>
+        <option value="loss">Stops</option>
+      </select>
+    </div>
+    <div class="section-pad" id="hist-list"></div>
+  </div>
+
+  <!-- ===== DARF ===== -->
+  <div id="screen-darf" class="screen">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">DARF</div>
+        <div class="topbar-sub">Cálculo de imposto mensal</div>
+      </div>
+    </div>
+    <div class="section-pad">
+      <div class="info-banner">⚠️ Daytrade: alíquota de 20% sobre lucro líquido mensal. Código DARF 6015. Vencimento: último dia útil do mês seguinte. Prejuízos compensam lucros futuros. Esta calculadora é apenas orientativa.</div>
+      <div id="darf-content"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="navTo('dash')">
+      <span class="nav-icon">📊</span>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-item" onclick="navTo('registrar')">
+      <span class="nav-icon">➕</span>
+      <span>Registrar</span>
+    </button>
+    <button class="nav-item" onclick="navTo('historico')">
+      <span class="nav-icon">📋</span>
+      <span>Histórico</span>
+    </button>
+    <button class="nav-item" onclick="navTo('darf')">
+      <span class="nav-icon">🧾</span>
+      <span>DARF</span>
+    </button>
+  </nav>
+</div>
+
+<!-- MODAL DETALHE -->
+<div class="modal-backdrop" id="modal" onclick="closeModal(event)">
+  <div class="modal-sheet" id="modal-sheet">
+    <div class="modal-handle"></div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===================== STATE =====================
+const STORE = 'traderlog_v2';
+let trades = [];
+let pillState = { dir:'Compra', barra:'Forte', ctx:'Tendência Alta', mm:'Acima', saida:'Stop atingido' };
+let sentState = 'Calmo';
+let erroState = new Set();
+
+function load() {
+  try { trades = JSON.parse(localStorage.getItem(STORE) || '[]'); } catch(e) { trades = []; }
+}
+function save() {
+  localStorage.setItem(STORE, JSON.stringify(trades));
+}
+load();
+
+// ===================== NAV =====================
+function navTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  const idx = {dash:0,registrar:1,historico:2,darf:3}[id];
+  document.querySelectorAll('.nav-item')[idx].classList.add('active');
+  if (id === 'dash') renderDash();
+  if (id === 'historico') renderHistorico();
+  if (id === 'darf') renderDarf();
+}
+
+// ===================== FORM HELPERS =====================
+function selectPill(el, group) {
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(p => p.classList.remove('active','green','red','yellow','purple'));
+  el.classList.add('active');
+  if (el.dataset.val === 'Compra') el.classList.add('green');
+  if (el.dataset.val === 'Venda') el.classList.add('red');
+  pillState[group] = el.dataset.val;
+}
+function selectSent(el) {
+  document.querySelectorAll('[data-group="sent"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  sentState = el.dataset.val;
+}
+function toggleErro(el) {
+  const e = el.dataset.erro;
+  if (erroState.has(e)) { erroState.delete(e); el.classList.remove('active'); }
+  else { erroState.add(e); el.classList.add('active'); }
+}
+function updateConv(v) {
+  document.getElementById('conv-val').textContent = v;
+  const descs = ['','Muito baixa','Baixa','Baixa','Moderada','Moderada','Boa','Boa','Alta','Alta','Máxima — vai fundo!'];
+  document.getElementById('conv-desc').textContent = descs[v] || '';
+}
+
+// ===================== SALVAR =====================
+function salvarTrade() {
+  const ativo = document.getElementById('f-ativo').value.trim().toUpperCase();
+  const resultado = document.getElementById('f-resultado').value;
+  if (!ativo || resultado === '') { showToast('⚠️ Ativo e resultado são obrigatórios'); return; }
+  const entrada = parseFloat(document.getElementById('f-entrada').value) || 0;
+  const stop = parseFloat(document.getElementById('f-stop').value) || 0;
+  const alvo = parseFloat(document.getElementById('f-alvo').value) || 0;
+  const res = parseFloat(resultado);
+  const risco = entrada && stop ? Math.abs(entrada - stop) : 0;
+  const rrPlan = risco > 0 && alvo && entrada ? +(Math.abs(alvo - entrada) / risco).toFixed(2) : null;
+  const t = {
+    id: Date.now(),
+    data: document.getElementById('f-data').value || new Date().toISOString().split('T')[0],
+    ativo, dir: pillState.dir, setup: document.getElementById('f-setup').value,
+    barra: pillState.barra, ctx: pillState.ctx, mm: pillState.mm,
+    obsTecnica: document.getElementById('f-obs-tecnica').value,
+    entrada, stop, alvo, resultado: res,
+    saida: pillState.saida, conv: parseInt(document.getElementById('f-conv').value),
+    sentimento: sentState, erros: [...erroState],
+    melhorar: document.getElementById('f-melhorar').value,
+    rrPlan
+  };
+  trades.unshift(t);
+  save();
+  resetForm();
+  showToast('✅ Trade salvo!');
+  navTo('dash');
+}
+
+function resetForm() {
+  ['f-ativo','f-entrada','f-stop','f-alvo','f-resultado','f-obs-tecnica','f-melhorar'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f-data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('f-conv').value = 5;
+  updateConv(5);
+  pillState = { dir:'Compra', barra:'Forte', ctx:'Tendência Alta', mm:'Acima', saida:'Stop atingido' };
+  sentState = 'Calmo';
+  erroState.clear();
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active','green','red','yellow','purple'));
+  document.querySelector('[data-val="Compra"]').classList.add('active','green');
+  document.querySelector('[data-val="Forte"]').classList.add('active');
+  document.querySelector('[data-val="Tendência Alta"]').classList.add('active');
+  document.querySelector('[data-val="Acima"]').classList.add('active');
+  document.querySelector('[data-val="Stop atingido"]').classList.add('active');
+  document.querySelectorAll('.sent-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('[data-val="Calmo"]').classList.add('active');
+  document.querySelectorAll('.erro-btn').forEach(b => b.classList.remove('active'));
+}
+
+// ===================== DASHBOARD =====================
+function renderDash() {
+  const now = new Date();
+  document.getElementById('dash-date').textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
+  if (trades.length === 0) {
+    document.getElementById('stats-top').innerHTML = '';
+    document.getElementById('dash-charts').innerHTML = `<div class="empty"><div class="empty-icon">📊</div><p>Nenhum trade registrado.<br>Toque em <strong>+ Trade</strong> para começar.</p></div>`;
+    return;
+  }
+  const total = trades.length;
+  const wins = trades.filter(t => t.resultado > 0);
+  const losses = trades.filter(t => t.resultado <= 0);
+  const lucro = trades.reduce((s,t) => s + t.resultado, 0);
+  const taxa = Math.round((wins.length / total) * 100);
+  const rrVals = trades.filter(t => t.rrPlan).map(t => t.rrPlan);
+  const rrMed = rrVals.length ? (rrVals.reduce((a,b) => a+b,0) / rrVals.length).toFixed(1) : '—';
+  document.getElementById('stats-top').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Lucro líquido</div><div class="stat-val ${lucro>=0?'c-green':'c-red'}">R$ ${lucro.toFixed(0)}</div><div class="stat-sub">${total} operações</div></div>
+    <div class="stat-card"><div class="stat-label">Taxa de acerto</div><div class="stat-val ${taxa>=50?'c-green':'c-red'}">${taxa}%</div><div class="stat-sub">${wins.length}W · ${losses.length}L</div></div>
+    <div class="stat-card"><div class="stat-label">RR médio plan.</div><div class="stat-val c-accent">${rrMed}x</div><div class="stat-sub">por operação</div></div>
+    <div class="stat-card"><div class="stat-label">Melhor trade</div><div class="stat-val c-green">R$ ${wins.length?Math.max(...wins.map(t=>t.resultado)).toFixed(0):'—'}</div><div class="stat-sub">Pior: R$ ${losses.length?Math.min(...losses.map(t=>t.resultado)).toFixed(0):'—'}</div></div>
+  `;
+
+  // Charts
+  let html = '';
+
+  // Por setup
+  const setups = {};
+  trades.forEach(t => {
+    if (!setups[t.setup]) setups[t.setup] = {total:0, wins:0, lucro:0};
+    setups[t.setup].total++;
+    if (t.resultado > 0) setups[t.setup].wins++;
+    setups[t.setup].lucro += t.resultado;
+  });
+  const setupList = Object.entries(setups).sort((a,b) => b[1].total - a[1].total).slice(0,6);
+  const maxSetup = Math.max(...setupList.map(s => s[1].total));
+  html += `<div class="chart-section"><div class="chart-title">Taxa de acerto por setup</div>`;
+  setupList.forEach(([name, d]) => {
+    const pct = Math.round((d.wins/d.total)*100);
+    const barW = Math.round((d.total/maxSetup)*100);
+    const col = pct >= 50 ? 'var(--green)' : 'var(--red)';
+    html += `<div class="bar-row"><span class="bar-label">${name}</span><div class="bar-track"><div class="bar-fill" style="width:${barW}%;background:${col}"></div></div><span class="bar-val" style="color:${col}">${pct}%</span></div>`;
+  });
+  html += '</div>';
+
+  // Por convicção
+  const convGroups = {alto:[], medio:[], baixo:[]};
+  trades.forEach(t => {
+    if (t.conv >= 8) convGroups.alto.push(t);
+    else if (t.conv >= 5) convGroups.medio.push(t);
+    else convGroups.baixo.push(t);
+  });
+  html += `<div class="chart-section"><div class="chart-title">Performance por convicção</div>`;
+  const convData = [
+    {label:'Alta (8-10)', arr: convGroups.alto, col:'var(--green)'},
+    {label:'Média (5-7)', arr: convGroups.medio, col:'var(--yellow)'},
+    {label:'Baixa (1-4)', arr: convGroups.baixo, col:'var(--red)'},
+  ];
+  convData.forEach(({label, arr, col}) => {
+    if (!arr.length) return;
+    const w = arr.filter(t => t.resultado > 0).length;
+    const pct = Math.round((w/arr.length)*100);
+    html += `<div class="bar-row"><span class="bar-label">${label}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="bar-val" style="color:${col}">${pct}%</span></div>`;
+  });
+  html += '</div>';
+
+  // Erros mais frequentes
+  const erroCount = {};
+  trades.forEach(t => (t.erros||[]).forEach(e => { erroCount[e] = (erroCount[e]||0)+1; }));
+  const erroList = Object.entries(erroCount).sort((a,b) => b[1]-a[1]).slice(0,5);
+  if (erroList.length) {
+    const maxErro = erroList[0][1];
+    html += `<div class="chart-section"><div class="chart-title">Erros mais frequentes</div>`;
+    erroList.forEach(([name, count]) => {
+      const pct = Math.round((count/maxErro)*100);
+      html += `<div class="bar-row"><span class="bar-label">${name}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--red)"></div></div><span class="bar-val c-red">${count}x</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  // Sentimento
+  const sentCount = {};
+  trades.forEach(t => { if(t.sentimento) sentCount[t.sentimento] = (sentCount[t.sentimento]||0)+1; });
+  const sentList = Object.entries(sentCount).sort((a,b)=>b[1]-a[1]);
+  if (sentList.length) {
+    const maxSent = sentList[0][1];
+    html += `<div class="chart-section"><div class="chart-title">Frequência de sentimentos</div>`;
+    const sentIcons = {Calmo:'😌',Confiante:'💪',Ansioso:'😰',FOMO:'😤','Com medo':'😨',Revenge:'🤬'};
+    sentList.forEach(([name, count]) => {
+      const pct = Math.round((count/maxSent)*100);
+      html += `<div class="bar-row"><span class="bar-label">${sentIcons[name]||''} ${name}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:var(--purple)"></div></div><span class="bar-val c-purple">${count}x</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  // Resultado por dia (últimos 10 dias com trades)
+  const byDay = {};
+  trades.forEach(t => { byDay[t.data] = (byDay[t.data]||0) + t.resultado; });
+  const dayList = Object.entries(byDay).sort((a,b)=>a[0].localeCompare(b[0])).slice(-10);
+  if (dayList.length > 1) {
+    const maxAbs = Math.max(...dayList.map(d=>Math.abs(d[1])));
+    html += `<div class="chart-section"><div class="chart-title">Resultado por dia</div>`;
+    dayList.forEach(([date, val]) => {
+      const pct = Math.round((Math.abs(val)/maxAbs)*100);
+      const col = val >= 0 ? 'var(--green)' : 'var(--red)';
+      const d = date.split('-');
+      html += `<div class="bar-row"><span class="bar-label">${d[2]}/${d[1]}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div><span class="bar-val" style="color:${col}">R$ ${val.toFixed(0)}</span></div>`;
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('dash-charts').innerHTML = html;
+}
+
+// ===================== HISTÓRICO =====================
+function renderHistorico() {
+  const filter = document.getElementById('hist-filter')?.value || 'all';
+  let list = [...trades];
+  if (filter === 'win') list = list.filter(t => t.resultado > 0);
+  if (filter === 'loss') list = list.filter(t => t.resultado <= 0);
+  document.getElementById('hist-count').textContent = `${list.length} operaç${list.length===1?'ão':'ões'}`;
+  if (!list.length) {
+    document.getElementById('hist-list').innerHTML = `<div class="empty"><div class="empty-icon">📋</div><p>Nenhuma operação encontrada.</p></div>`;
+    return;
+  }
+  const convDots = (n) => Array.from({length:10}, (_,i) => `<span class="conv-dot${i<n?' filled':''}"></span>`).join('');
+  const sentIcons = {Calmo:'😌',Confiante:'💪',Ansioso:'😰',FOMO:'😤','Com medo':'😨',Revenge:'🤬'};
+  document.getElementById('hist-list').innerHTML = list.map(t => `
+    <div class="trade-card" onclick="openModal(${t.id})">
+      <div class="trade-header">
+        <span class="trade-ativo">${t.ativo}</span>
+        <span class="trade-date">${t.data.split('-').reverse().join('/')}</span>
+      </div>
+      <div class="trade-tags">
+        <span class="tag ${t.dir==='Compra'?'tag-compra':'tag-venda'}">${t.dir==='Compra'?'▲':'▼'} ${t.dir}</span>
+        <span class="tag tag-setup">${t.setup}</span>
+        ${t.sentimento ? `<span class="tag tag-setup">${sentIcons[t.sentimento]||''} ${t.sentimento}</span>` : ''}
+      </div>
+      <div class="trade-bottom">
+        <span class="trade-result ${t.resultado>=0?'c-green':'c-red'}">R$ ${t.resultado>=0?'+':''}${t.resultado.toFixed(2)}</span>
+        <div class="conv-dots">${convDots(t.conv||5)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ===================== MODAL DETALHE =====================
+function openModal(id) {
+  const t = trades.find(x => x.id === id);
+  if (!t) return;
+  const d = t.data.split('-').reverse().join('/');
+  const sentIcons = {Calmo:'😌',Confiante:'💪',Ansioso:'😰',FOMO:'😤','Com medo':'😨',Revenge:'🤬'};
+  let html = `
+    <div class="modal-title">${t.ativo}</div>
+    <div class="modal-date">${d} · ${t.dir} · ${t.setup}</div>
+    <div class="modal-result ${t.resultado>=0?'c-green':'c-red'}">R$ ${t.resultado>=0?'+':''}${t.resultado.toFixed(2)}</div>
+    <div class="detail-grid">
+      <div class="detail-item"><div class="detail-item-label">Entrada</div><div class="detail-item-val">${t.entrada||'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">Stop</div><div class="detail-item-val">${t.stop||'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">Alvo</div><div class="detail-item-val">${t.alvo||'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">RR planejado</div><div class="detail-item-val">${t.rrPlan?t.rrPlan+'x':'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">Convicção</div><div class="detail-item-val c-yellow">${t.conv||'—'}/10</div></div>
+      <div class="detail-item"><div class="detail-item-label">Sentimento</div><div class="detail-item-val">${sentIcons[t.sentimento]||''} ${t.sentimento||'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">Contexto</div><div class="detail-item-val">${t.ctx||'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">MM20</div><div class="detail-item-val">${t.mm||'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">Barra sinal</div><div class="detail-item-val">${t.barra||'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">Saída</div><div class="detail-item-val">${t.saida||'—'}</div></div>
+    </div>
+    ${t.erros?.length ? `<div class="obs-block"><div class="obs-block-label">Erros identificados</div><div class="obs-block-val">${t.erros.join(' · ')}</div></div>` : ''}
+    ${t.obsTecnica ? `<div class="obs-block"><div class="obs-block-label">Observação técnica</div><div class="obs-block-val">${t.obsTecnica}</div></div>` : ''}
+    ${t.melhorar ? `<div class="obs-block"><div class="obs-block-label">O que melhorar</div><div class="obs-block-val">${t.melhorar}</div></div>` : ''}
+    <button class="btn-del" onclick="deleteTrade(${t.id})">Excluir trade</button>
+  `;
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.remove('open');
+  }
+}
+function deleteTrade(id) {
+  if (!confirm('Excluir este trade?')) return;
+  trades = trades.filter(t => t.id !== id);
+  save();
+  closeModal();
+  renderHistorico();
+  showToast('🗑️ Trade excluído');
+}
+
+// ===================== DARF =====================
+function renderDarf() {
+  const porMes = {};
+  trades.forEach(t => {
+    const mes = t.data?.substring(0,7);
+    if (!mes) return;
+    if (!porMes[mes]) porMes[mes] = {lucro:0, prej:0, n:0};
+    if (t.resultado > 0) porMes[mes].lucro += t.resultado;
+    else porMes[mes].prej += Math.abs(t.resultado);
+    porMes[mes].n++;
+  });
+  const meses = Object.keys(porMes).sort().reverse();
+  if (!meses.length) {
+    document.getElementById('darf-content').innerHTML = `<div class="empty"><div class="empty-icon">🧾</div><p>Nenhum trade registrado ainda.</p></div>`;
+    return;
+  }
+  const nomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  let prejAcum = 0;
+  document.getElementById('darf-content').innerHTML = meses.map(mes => {
+    const [ano, m] = mes.split('-');
+    const d = porMes[mes];
+    const base = Math.max(0, d.lucro - d.prej - prejAcum);
+    const imposto = base > 0 ? base * 0.20 : 0;
+    if (d.lucro - d.prej < 0) prejAcum += Math.abs(d.lucro - d.prej);
+    else prejAcum = Math.max(0, prejAcum - (d.lucro - d.prej));
+    const proxM = parseInt(m) < 12 ? parseInt(m)+1 : 1;
+    const proxA = parseInt(m) < 12 ? ano : parseInt(ano)+1;
+    return `
+      <div class="darf-card">
+        <div class="darf-mes">${nomes[parseInt(m)-1]} / ${ano} <span style="font-size:12px;color:var(--muted);font-weight:400">(${d.n} trades)</span></div>
+        <div class="darf-row"><span class="dl">Lucro bruto</span><span class="dv c-green">R$ ${d.lucro.toFixed(2)}</span></div>
+        <div class="darf-row"><span class="dl">Prejuízo</span><span class="dv c-red">- R$ ${d.prej.toFixed(2)}</span></div>
+        <div class="darf-row"><span class="dl">Base de cálculo</span><span class="dv">R$ ${base.toFixed(2)}</span></div>
+        <div class="darf-row"><span class="dl">Alíquota (daytrade)</span><span class="dv">20%</span></div>
+        ${imposto > 0
+          ? `<div class="darf-imposto">R$ ${imposto.toFixed(2)}</div><div style="font-size:12px;color:var(--muted)">Código DARF 6015 · Vencer: último dia útil de ${nomes[proxM-1]}/${proxA}</div>`
+          : `<div class="darf-zero">✓ Sem imposto a recolher</div>`
+        }
+      </div>`;
+  }).join('');
+}
+
+// ===================== UTILS =====================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ===================== INIT =====================
+document.getElementById('f-data').value = new Date().toISOString().split('T')[0];
+document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+updateConv(5);
+renderDash();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>
