@@ -152,6 +152,28 @@
   .obs-block-val { font-size: 13px; color: var(--text); line-height: 1.5; }
   .btn-del { width: 100%; padding: 14px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--red); font-size: 15px; font-weight: 600; border-radius: var(--radius); cursor: pointer; font-family: inherit; margin-top: 12px; }
 
+  /* EVOLUÇÃO */
+  .evo-wrap { position: relative; width: 100%; height: 140px; }
+  .evo-svg { width: 100%; height: 100%; }
+  .evo-zero { stroke: var(--border); stroke-width: 1; stroke-dasharray: 4 4; }
+  .evo-area { fill: url(#evoGrad); opacity: 0.3; }
+  .evo-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .evo-dot { cursor: pointer; }
+  .evo-labels { display: flex; justify-content: space-between; margin-top: 4px; }
+  .evo-label { font-size: 10px; color: var(--muted); }
+
+  /* ALERTAS */
+  .alert-card { border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-start; }
+  .alert-card.warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); }
+  .alert-card.danger { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); }
+  .alert-card.good { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25); }
+  .alert-card.info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25); }
+  .alert-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+  .alert-text { font-size: 13px; line-height: 1.5; }
+  .alert-text strong { display: block; font-size: 13px; margin-bottom: 2px; }
+  .alert-text span { color: var(--muted); font-size: 12px; }
+  .no-alerts { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; }
+
   /* DARF */
   .darf-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
   .darf-mes { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
@@ -190,6 +212,8 @@
     </div>
     <div class="section-pad">
       <div class="stats-row" id="stats-top"></div>
+      <div id="dash-evo"></div>
+      <div id="dash-alertas"></div>
       <div id="dash-charts"></div>
     </div>
   </div>
@@ -550,6 +574,9 @@ function renderDash() {
     <div class="stat-card"><div class="stat-label">Melhor trade</div><div class="stat-val c-green">R$ ${wins.length?Math.max(...wins.map(t=>t.resultado)).toFixed(0):'—'}</div><div class="stat-sub">Pior: R$ ${losses.length?Math.min(...losses.map(t=>t.resultado)).toFixed(0):'—'}</div></div>
   `;
 
+  renderEvo();
+  renderAlertas();
+
   // Charts
   let html = '';
 
@@ -757,6 +784,170 @@ function renderDarf() {
         }
       </div>`;
   }).join('');
+}
+
+// ===================== EVOLUÇÃO ACUMULADA =====================
+function renderEvo() {
+  const el = document.getElementById('dash-evo');
+  if (trades.length < 2) { el.innerHTML = ''; return; }
+
+  const sorted = [...trades].sort((a,b) => a.data.localeCompare(b.data) || a.id - b.id);
+  let acum = 0;
+  const pontos = sorted.map(t => { acum += t.resultado; return { data: t.data, val: acum, res: t.resultado }; });
+
+  const W = 340, H = 120, PAD = 10;
+  const vals = pontos.map(p => p.val);
+  const min = Math.min(0, ...vals);
+  const max = Math.max(0, ...vals);
+  const range = max - min || 1;
+  const toX = i => PAD + (i / (pontos.length - 1)) * (W - PAD * 2);
+  const toY = v => H - PAD - ((v - min) / range) * (H - PAD * 2);
+  const zeroY = toY(0);
+
+  const pts = pontos.map((p, i) => `${toX(i)},${toY(p.val)}`).join(' ');
+  const areaPath = `M${toX(0)},${zeroY} ` + pontos.map((p,i) => `L${toX(i)},${toY(p.val)}`).join(' ') + ` L${toX(pontos.length-1)},${zeroY} Z`;
+  const linePath = `M` + pontos.map((p,i) => `${toX(i)},${toY(p.val)}`).join(' L');
+  const finalVal = pontos[pontos.length-1].val;
+  const cor = finalVal >= 0 ? '#22c55e' : '#ef4444';
+
+  // Labels de datas (início, meio, fim)
+  const labelIdxs = [0, Math.floor((pontos.length-1)/2), pontos.length-1];
+  const labels = labelIdxs.map(i => {
+    const d = pontos[i].data.split('-');
+    return `<span class="evo-label">${d[2]}/${d[1]}</span>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="chart-section">
+      <div class="chart-title">📈 Evolução do resultado acumulado</div>
+      <div class="evo-wrap">
+        <svg class="evo-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="evoGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${cor}" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="${cor}" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <line class="evo-zero" x1="${PAD}" y1="${zeroY}" x2="${W-PAD}" y2="${zeroY}"/>
+          <path class="evo-area" d="${areaPath}" fill="url(#evoGrad)"/>
+          <path class="evo-line" d="${linePath}" stroke="${cor}"/>
+          ${pontos.map((p,i) => `<circle class="evo-dot" cx="${toX(i)}" cy="${toY(p.val)}" r="3" fill="${p.res>=0?'#22c55e':'#ef4444'}" stroke="var(--bg2)" stroke-width="1.5"/>`).join('')}
+        </svg>
+      </div>
+      <div class="evo-labels">${labels}</div>
+      <div style="text-align:right;margin-top:6px;font-size:13px;font-weight:700;color:${cor};font-variant-numeric:tabular-nums">
+        Acumulado: R$ ${finalVal >= 0 ? '+' : ''}${finalVal.toFixed(2)}
+      </div>
+    </div>`;
+}
+
+// ===================== ALERTAS INTELIGENTES =====================
+function renderAlertas() {
+  const el = document.getElementById('dash-alertas');
+  if (trades.length < 3) { el.innerHTML = ''; return; }
+
+  const alertas = [];
+
+  // 1. Convicção baixa = mais stops
+  const baixaConv = trades.filter(t => t.conv <= 4);
+  if (baixaConv.length >= 2) {
+    const stops = baixaConv.filter(t => t.resultado <= 0).length;
+    const pct = Math.round((stops / baixaConv.length) * 100);
+    if (pct >= 60) {
+      alertas.push({ tipo: 'danger', icon: '⚠️',
+        titulo: `Convicção baixa → ${pct}% de stops`,
+        desc: `Nos ${baixaConv.length} trades com convicção ≤4, você perdeu ${stops}. Considere não operar abaixo de 6.` });
+    }
+  }
+
+  // 2. Setup com pior performance
+  const porSetup = {};
+  trades.forEach(t => {
+    if (!porSetup[t.setup]) porSetup[t.setup] = { total:0, stops:0, lucro:0 };
+    porSetup[t.setup].total++;
+    if (t.resultado <= 0) porSetup[t.setup].stops++;
+    porSetup[t.setup].lucro += t.resultado;
+  });
+  const setupRuim = Object.entries(porSetup)
+    .filter(([,d]) => d.total >= 2 && d.lucro < 0)
+    .sort((a,b) => a[1].lucro - b[1].lucro)[0];
+  if (setupRuim) {
+    const [nome, d] = setupRuim;
+    alertas.push({ tipo: 'warn', icon: '📉',
+      titulo: `Setup "${nome}" no negativo`,
+      desc: `${d.total} trades, resultado: R$ ${d.lucro.toFixed(2)}. Vale revisar a execução desse padrão.` });
+  }
+
+  // 3. FOMO frequente
+  const fomoTrades = trades.filter(t => (t.erros||[]).includes('FOMO') || t.sentimento === 'FOMO');
+  if (fomoTrades.length >= 2) {
+    const fomoStops = fomoTrades.filter(t => t.resultado <= 0).length;
+    alertas.push({ tipo: 'warn', icon: '😤',
+      titulo: `FOMO identificado em ${fomoTrades.length} trades`,
+      desc: `${fomoStops} deles resultaram em stop. Pausa antes de entrar resolve na maioria dos casos.` });
+  }
+
+  // 4. Melhor setup
+  const setupBom = Object.entries(porSetup)
+    .filter(([,d]) => d.total >= 2 && d.lucro > 0)
+    .sort((a,b) => b[1].lucro - a[1].lucro)[0];
+  if (setupBom) {
+    const [nome, d] = setupBom;
+    const taxa = Math.round(((d.total - d.stops) / d.total) * 100);
+    alertas.push({ tipo: 'good', icon: '✅',
+      titulo: `Melhor setup: "${nome}"`,
+      desc: `${taxa}% de acerto em ${d.total} trades. R$ ${d.lucro.toFixed(2)} acumulado. Continue focando nele.` });
+  }
+
+  // 5. Convicção alta = ganho
+  const altaConv = trades.filter(t => t.conv >= 8);
+  if (altaConv.length >= 2) {
+    const wins = altaConv.filter(t => t.resultado > 0).length;
+    const pct = Math.round((wins / altaConv.length) * 100);
+    if (pct >= 60) {
+      alertas.push({ tipo: 'good', icon: '💡',
+        titulo: `Alta convicção → ${pct}% de acerto`,
+        desc: `Quando você acredita no trade (≥8), entrega. Esses ${altaConv.length} trades mostram seu melhor padrão.` });
+    }
+  }
+
+  // 6. Streak de stops
+  let streak = 0;
+  for (const t of trades) {
+    if (t.resultado <= 0) streak++;
+    else break;
+  }
+  if (streak >= 3) {
+    alertas.push({ tipo: 'danger', icon: '🛑',
+      titulo: `${streak} stops seguidos nos últimos trades`,
+      desc: `Momento de pausar, revisar e não operar até entender o que está acontecendo.` });
+  }
+
+  // 7. RR planejado vs resultado
+  const comRR = trades.filter(t => t.rrPlan && t.resultado > 0);
+  if (comRR.length >= 3) {
+    const atingiuAlvo = comRR.filter(t => t.saida === 'Alvo atingido').length;
+    const pct = Math.round((atingiuAlvo / comRR.length) * 100);
+    if (pct < 40) {
+      alertas.push({ tipo: 'info', icon: '🎯',
+        titulo: `Alvos atingidos em apenas ${pct}% dos gains`,
+        desc: `Você costuma sair antes do alvo. Avalie se os alvos estão realistas ou se a gestão pode melhorar.` });
+    }
+  }
+
+  if (!alertas.length) {
+    el.innerHTML = `<div class="chart-section"><div class="chart-title">🔔 Alertas & padrões</div><div class="no-alerts">Sem alertas por enquanto. Continue registrando! 📊</div></div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="chart-section">
+    <div class="chart-title">🔔 Alertas & padrões detectados</div>
+    ${alertas.map(a => `
+      <div class="alert-card ${a.tipo}">
+        <span class="alert-icon">${a.icon}</span>
+        <div class="alert-text"><strong>${a.titulo}</strong><span>${a.desc}</span></div>
+      </div>`).join('')}
+  </div>`;
 }
 
 // ===================== UTILS =====================
