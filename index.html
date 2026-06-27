@@ -448,7 +448,65 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<script>
+<script type="module">
+// ===================== FIREBASE =====================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCTKPPTukK8wRmG8Ymg6QBvq1vOZEgYLwM",
+  authDomain: "diario-trader-93da3.firebaseapp.com",
+  projectId: "diario-trader-93da3",
+  storageBucket: "diario-trader-93da3.firebasestorage.app",
+  messagingSenderId: "1005891727795",
+  appId: "1:1005891727795:web:bf34f3d3595bde5380dbc6"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
+
+let userId = null;
+
+function tradesRef() {
+  return collection(db, 'users', userId, 'trades');
+}
+
+async function loadFromFirebase() {
+  try {
+    const q = query(tradesRef(), orderBy('id', 'desc'));
+    const snap = await getDocs(q);
+    trades = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+    renderDash();
+  } catch(e) {
+    console.error('Erro ao carregar trades:', e);
+    load(); // fallback localStorage
+  }
+}
+
+async function saveToFirebase(trade) {
+  try {
+    const ref = await addDoc(tradesRef(), trade);
+    trade._docId = ref.id;
+  } catch(e) {
+    console.error('Erro ao salvar:', e);
+    // fallback: salva local
+    trades.unshift(trade);
+    save();
+  }
+}
+
+async function deleteFromFirebase(trade) {
+  try {
+    if (trade._docId) {
+      await deleteDoc(doc(db, 'users', userId, 'trades', trade._docId));
+    }
+  } catch(e) {
+    console.error('Erro ao deletar:', e);
+  }
+}
+
 // ===================== STATE =====================
 const STORE = 'traderlog_v2';
 let trades = [];
@@ -462,7 +520,26 @@ function load() {
 function save() {
   localStorage.setItem(STORE, JSON.stringify(trades));
 }
-load();
+
+// Auth anônima — cada dispositivo/usuário tem seus próprios dados
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    userId = user.uid;
+    // Migra dados do localStorage se existirem
+    const local = JSON.parse(localStorage.getItem(STORE) || '[]');
+    if (local.length > 0) {
+      showToast('⬆️ Migrando dados locais...');
+      for (const t of local) {
+        const { _docId, ...clean } = t;
+        await addDoc(tradesRef(), clean);
+      }
+      localStorage.removeItem(STORE);
+    }
+    await loadFromFirebase();
+  } else {
+    await signInAnonymously(auth);
+  }
+});
 
 // ===================== NAV =====================
 function navTo(id) {
@@ -501,7 +578,7 @@ function updateConv(v) {
 }
 
 // ===================== SALVAR =====================
-function salvarTrade() {
+async function salvarTrade() {
   const ativo = document.getElementById('f-ativo').value.trim().toUpperCase();
   const resultado = document.getElementById('f-resultado').value;
   if (!ativo || resultado === '') { showToast('⚠️ Ativo e resultado são obrigatórios'); return; }
@@ -523,10 +600,11 @@ function salvarTrade() {
     melhorar: document.getElementById('f-melhorar').value,
     rrPlan
   };
+  showToast('💾 Salvando...');
+  await saveToFirebase(t);
   trades.unshift(t);
-  save();
   resetForm();
-  showToast('✅ Trade salvo!');
+  showToast('✅ Trade salvo na nuvem!');
   navTo('dash');
 }
 
@@ -735,10 +813,11 @@ function closeModal(e) {
     document.getElementById('modal').classList.remove('open');
   }
 }
-function deleteTrade(id) {
+async function deleteTrade(id) {
   if (!confirm('Excluir este trade?')) return;
+  const t = trades.find(x => x.id === id);
+  await deleteFromFirebase(t);
   trades = trades.filter(t => t.id !== id);
-  save();
   closeModal();
   renderHistorico();
   showToast('🗑️ Trade excluído');
@@ -962,7 +1041,6 @@ function showToast(msg) {
 document.getElementById('f-data').value = new Date().toISOString().split('T')[0];
 document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
 updateConv(5);
-renderDash();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
