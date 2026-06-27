@@ -448,12 +448,11 @@
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<script type="module">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
 // ===================== FIREBASE =====================
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
 const firebaseConfig = {
   apiKey: "AIzaSyCTKPPTukK8wRmG8Ymg6QBvq1vOZEgYLwM",
   authDomain: "diario-trader-93da3.firebaseapp.com",
@@ -463,35 +462,34 @@ const firebaseConfig = {
   appId: "1:1005891727795:web:bf34f3d3595bde5380dbc6"
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
-const auth = getAuth(firebaseApp);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
 
 let userId = null;
 
 function tradesRef() {
-  return collection(db, 'users', userId, 'trades');
+  return db.collection('users').doc(userId).collection('trades');
 }
 
 async function loadFromFirebase() {
   try {
-    const q = query(tradesRef(), orderBy('id', 'desc'));
-    const snap = await getDocs(q);
+    const snap = await tradesRef().orderBy('id', 'desc').get();
     trades = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
     renderDash();
   } catch(e) {
-    console.error('Erro ao carregar trades:', e);
-    load(); // fallback localStorage
+    console.error('Erro ao carregar:', e);
+    load();
+    renderDash();
   }
 }
 
 async function saveToFirebase(trade) {
   try {
-    const ref = await addDoc(tradesRef(), trade);
+    const ref = await tradesRef().add(trade);
     trade._docId = ref.id;
   } catch(e) {
     console.error('Erro ao salvar:', e);
-    // fallback: salva local
     trades.unshift(trade);
     save();
   }
@@ -500,7 +498,7 @@ async function saveToFirebase(trade) {
 async function deleteFromFirebase(trade) {
   try {
     if (trade._docId) {
-      await deleteDoc(doc(db, 'users', userId, 'trades', trade._docId));
+      await tradesRef().doc(trade._docId).delete();
     }
   } catch(e) {
     console.error('Erro ao deletar:', e);
@@ -522,22 +520,21 @@ function save() {
 }
 
 // Auth anônima — cada dispositivo/usuário tem seus próprios dados
-onAuthStateChanged(auth, async (user) => {
+auth.onAuthStateChanged(async (user) => {
   if (user) {
     userId = user.uid;
-    // Migra dados do localStorage se existirem
     const local = JSON.parse(localStorage.getItem(STORE) || '[]');
     if (local.length > 0) {
       showToast('⬆️ Migrando dados locais...');
       for (const t of local) {
         const { _docId, ...clean } = t;
-        await addDoc(tradesRef(), clean);
+        await tradesRef().add(clean);
       }
       localStorage.removeItem(STORE);
     }
     await loadFromFirebase();
   } else {
-    await signInAnonymously(auth);
+    await auth.signInAnonymously();
   }
 });
 
