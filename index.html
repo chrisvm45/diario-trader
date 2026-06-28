@@ -314,8 +314,12 @@
           <input type="number" id="f-alvo" placeholder="0.00" step="0.01" inputmode="decimal"/>
         </div>
         <div class="field">
-          <label>Resultado (R$) — use sinal negativo para perda</label>
-          <input type="text" id="f-resultado" placeholder="ex: 143 ou -34" inputmode="text" pattern="-?[0-9]*\.?[0-9]*"/>
+          <label>Resultado (R$)</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="btn-sinal" onclick="toggleSinal()" style="padding:11px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--green);font-size:18px;font-weight:700;min-width:48px;cursor:pointer">+</button>
+            <input type="number" id="f-resultado" placeholder="0.00" step="0.01" inputmode="decimal" oninput="atualizarPreview()" style="flex:1"/>
+          </div>
+          <div id="resultado-preview" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
         </div>
         <div class="field">
           <label>Saída foi...</label>
@@ -574,6 +578,27 @@ function updateConv(v) {
   document.getElementById('conv-desc').textContent = descs[v] || '';
 }
 
+// ===================== TOGGLE SINAL RESULTADO =====================
+let sinalPositivo = true;
+
+function toggleSinal() {
+  sinalPositivo = !sinalPositivo;
+  const btn = document.getElementById('btn-sinal');
+  btn.textContent = sinalPositivo ? '+' : '−';
+  btn.style.color = sinalPositivo ? 'var(--green)' : 'var(--red)';
+  btn.style.borderColor = sinalPositivo ? 'var(--green)' : 'var(--red)';
+  atualizarPreview();
+}
+
+function atualizarPreview() {
+  const val = parseFloat(document.getElementById('f-resultado').value);
+  const prev = document.getElementById('resultado-preview');
+  if (!val) { prev.textContent = ''; return; }
+  const final = sinalPositivo ? val : -val;
+  prev.textContent = `Resultado final: R$ ${final >= 0 ? '+' : ''}${final.toFixed(2)}`;
+  prev.style.color = final >= 0 ? 'var(--green)' : 'var(--red)';
+}
+
 // ===================== SALVAR =====================
 async function salvarTrade() {
   const ativo = document.getElementById('f-ativo').value.trim().toUpperCase();
@@ -582,7 +607,7 @@ async function salvarTrade() {
   const entrada = parseFloat(document.getElementById('f-entrada').value) || 0;
   const stop = parseFloat(document.getElementById('f-stop').value) || 0;
   const alvo = parseFloat(document.getElementById('f-alvo').value) || 0;
-  const res = parseFloat(resultado);
+  const res = parseFloat(resultado) * (sinalPositivo ? 1 : -1);
   const risco = entrada && stop ? Math.abs(entrada - stop) : 0;
   const rrPlan = risco > 0 && alvo && entrada ? +(Math.abs(alvo - entrada) / risco).toFixed(2) : null;
   const t = {
@@ -609,7 +634,10 @@ function resetForm() {
   ['f-ativo','f-entrada','f-stop','f-alvo','f-resultado','f-obs-tecnica','f-melhorar'].forEach(id => {
     document.getElementById(id).value = '';
   });
-  document.getElementById('f-data').value = new Date().toISOString().split('T')[0];
+  sinalPositivo = true;
+  const btn = document.getElementById('btn-sinal');
+  if (btn) { btn.textContent = '+'; btn.style.color = 'var(--green)'; btn.style.borderColor = 'var(--green)'; }
+  document.getElementById('resultado-preview').textContent = '';
   document.getElementById('f-conv').value = 5;
   updateConv(5);
   pillState = { dir:'Compra', barra:'Forte', ctx:'Tendência Alta', mm:'Acima', saida:'Stop atingido' };
